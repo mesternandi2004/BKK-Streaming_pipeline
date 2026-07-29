@@ -1,0 +1,4 @@
+requests
+kafka-python
+gtfs-realtime-bindings
+protobuf
