@@ -20,12 +20,12 @@ import requests
 from google.transit import gtfs_realtime_pb2
 from kafka import KafkaProducer
 
-# --- Konfiguráció ---
+# --- Config ---
 BKK_API_KEY = os.environ.get("BKK_API_KEY")
 if not BKK_API_KEY:
-    raise RuntimeError("A BKK_API_KEY környezeti változó nincs beállítva!")
+    raise RuntimeError("A BKK_API_KEY error with the env var")
 
-KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS=localhost:29092")
 POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "15"))
 
 VEHICLE_POSITIONS_URL = (
@@ -42,7 +42,7 @@ TRIP_UPDATES_TOPIC = "bkk-trip-updates"
 
 
 def fetch_feed(url):
-    """Lekéri és dekódolja egy GTFS-realtime feed protobuf válaszát."""
+    """Ask and decodethe GTFS-realtime feed protobuf's answer."""
     response = requests.get(url, timeout=10)
     response.raise_for_status()
 
@@ -52,7 +52,7 @@ def fetch_feed(url):
 
 
 def vehicle_entity_to_dict(entity, feed_timestamp):
-    """Egy VehiclePositions FeedEntity-t dict-té alakít Kafkába küldéshez."""
+    """Egy VehiclePositions FeedEntity-t converting to send to kafka"""
     vehicle = entity.vehicle
 
     record = {
