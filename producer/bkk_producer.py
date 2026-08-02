@@ -25,7 +25,7 @@ BKK_API_KEY = os.environ.get("BKK_API_KEY")
 if not BKK_API_KEY:
     raise RuntimeError("A BKK_API_KEY error with the env var")
 
-KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS=localhost:29092")
+KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "15"))
 
 VEHICLE_POSITIONS_URL = (
