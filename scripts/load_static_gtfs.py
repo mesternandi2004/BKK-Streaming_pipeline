@@ -1,26 +1,22 @@
 """
-Static GTFS betöltő script.
-Feltölti a dim_route, dim_stop, dim_trip, dim_date táblákat
-a letöltött budapest_gtfs.zip CSV fájljaiból.
+Static GTFS loader script for the Bronze Layer.
+Reads the raw budapest_gtfs.zip CSV files and saves them directly
+to the Delta Lake directory as Parquet files.
 
-Futtatás: python load_static_gtfs.py
+This can be scheduled via cron to run every 3 days.
 """
 
 import os
 import pandas as pd
-from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 
-DB_USER = os.environ.get("POSTGRES_USER", "nandi")
-DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "changeme")
-DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_NAME = os.environ.get("POSTGRES_DB", "bkk_transit")
+# --- Configuration ---
+# The location where you unzipped the BKK static GTFS files
 GTFS_DIR = os.path.expanduser("~/gtfs_static")
 
+# The location of our Data Lake Bronze layer
+BRONZE_LAKE_DIR = "/home/azureuser/BKK-Streaming_pipeline/data-lake/bronze"
 LOAD_NUMBER = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}")
-
 
 def load_routes():
     df = pd.read_csv(f"{GTFS_DIR}/routes.txt")
@@ -28,13 +24,12 @@ def load_routes():
     df = df[cols].copy()
     df["load_number"] = LOAD_NUMBER
 
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM dim_route"))
-        df.to_sql("dim_route", conn, if_exists="append", index=False)
-
-    print(f"dim_route: {len(df)} sor betöltve")
-    return len(df)
-
+    # Write directly to the Lakehouse (Bronze) as Parquet
+    # This is much faster and simpler than writing to Postgres
+    output_path = f"{BRONZE_LAKE_DIR}/dim_route.parquet"
+    df.to_parquet(output_path, index=False)
+    
+    print(f"dim_route: {len(df)} rows saved to {output_path}")
 
 def load_stops():
     df = pd.read_csv(f"{GTFS_DIR}/stops.txt")
@@ -42,14 +37,10 @@ def load_stops():
     df = df[cols].copy()
     df["load_number"] = LOAD_NUMBER
 
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM fact_stop_delay"))
-        conn.execute(text("DELETE FROM dim_stop"))
-        df.to_sql("dim_stop", conn, if_exists="append", index=False)
-
-    print(f"dim_stop: {len(df)} sor betöltve")
-    return len(df)
-
+    output_path = f"{BRONZE_LAKE_DIR}/dim_stop.parquet"
+    df.to_parquet(output_path, index=False)
+    
+    print(f"dim_stop: {len(df)} rows saved to {output_path}")
 
 def load_trips():
     df = pd.read_csv(f"{GTFS_DIR}/trips.txt")
@@ -58,67 +49,24 @@ def load_trips():
     df = df[cols].copy()
     df["load_number"] = LOAD_NUMBER
 
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM dim_trip"))
-        df.to_sql("dim_trip", conn, if_exists="append", index=False)
-
-    print(f"dim_trip: {len(df)} sor betöltve")
-    return len(df)
-
-
-def load_dim_date(days_back=30, days_forward=60):
-    today = datetime.now().date()
-    start = today - timedelta(days=days_back)
-    end = today + timedelta(days=days_forward)
-
-    dates = pd.date_range(start=start, end=end, freq="D")
-    df = pd.DataFrame({"date_id": dates.date})
-    df["day_of_week"] = dates.dayofweek
-    df["is_weekend"] = dates.dayofweek >= 5
-    df["is_holiday"] = False
-
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM fact_stop_delay"))
-        conn.execute(text("DELETE FROM dim_date"))
-        df.to_sql("dim_date", conn, if_exists="append", index=False)
-
-    print(f"dim_date: {len(df)} sor betöltve")
-    return len(df)
-
-
-def log_audit(layer, status, row_count, start_time, end_time):
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO audit_pipeline_runs (load_number, layer, status, row_count, start_time, end_time)
-            VALUES (:load_number, :layer, :status, :row_count, :start_time, :end_time)
-        """), {
-            "load_number": LOAD_NUMBER, "layer": layer, "status": status,
-            "row_count": row_count, "start_time": start_time, "end_time": end_time,
-        })
-
+    output_path = f"{BRONZE_LAKE_DIR}/dim_trip.parquet"
+    df.to_parquet(output_path, index=False)
+    
+    print(f"dim_trip: {len(df)} rows saved to {output_path}")
 
 def main():
-    print(f"Static GTFS betöltés indul. Load number: {LOAD_NUMBER}\n")
+    print(f"Starting Static GTFS Bronze Loader. Load number: {LOAD_NUMBER}\n")
+    
+    # Create the bronze directory if it doesn't exist
+    os.makedirs(BRONZE_LAKE_DIR, exist_ok=True)
 
-    steps = [
-        ("dim_date", load_dim_date),
-        ("dim_route", load_routes),
-        ("dim_stop", load_stops),
-        ("dim_trip", load_trips),
-    ]
-
-    for name, func in steps:
-        start = datetime.now()
-        try:
-            count = func()
-            log_audit(name, "SUCCESS", count, start, datetime.now())
-        except Exception as e:
-            log_audit(name, "FAILED", 0, start, datetime.now())
-            print(f"HIBA a(z) {name} betöltésekor: {e}")
-            raise
-
-    print("\nMinden dimenzió tábla sikeresen betöltve!")
-
+    try:
+        load_routes()
+        load_stops()
+        load_trips()
+        print("\nAll dimension tables successfully saved to the Bronze Lakehouse!")
+    except Exception as e:
+        print(f"\nERROR during data loading: {e}")
 
 if __name__ == "__main__":
     main()
