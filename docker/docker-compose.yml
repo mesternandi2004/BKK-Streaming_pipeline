@@ -21,7 +21,7 @@ services:
       - kafka_data:/var/lib/kafka/data
     mem_limit: 768m
     restart: unless-stopped
-    
+
   postgres:
     image: postgres:16
     container_name: postgres
@@ -43,6 +43,9 @@ services:
     ports:
       - "8080:8080"
       - "7077:7077"
+    volumes:
+      - ../data-lake:/opt/data-lake
+      - ../spark_jobs:/opt/spark_jobs
     mem_limit: 1536m
     restart: unless-stopped
 
@@ -55,6 +58,9 @@ services:
       SPARK_WORKER_CORES: 2
     depends_on:
       - spark-master
+    volumes:
+      - ../data-lake:/opt/data-lake
+      - ../spark_jobs:/opt/spark_jobs
     mem_limit: 1280m
     restart: unless-stopped
 
