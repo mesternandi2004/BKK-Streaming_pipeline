@@ -40,7 +40,7 @@ trip_updates_schema = StructType([
 kafka_df = (
     spark.readStream
     .format("kafka")
-    .option("kafka.bootstrap.servers", "kafka:29092")
+    .option("kafka.bootstrap.servers", "kafka:9092")
     .option("subscribe", "bkk-trip-updates")
     .option("startingOffsets", "earliest")
     .option("failOnDataLoss", "false")
