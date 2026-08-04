@@ -64,7 +64,7 @@ query = (
     .format("delta")
     .outputMode("append")
     .option("checkpointLocation", "/opt/data-lake/checkpoints/bronze_trip_updates")
-    .trigger(processingTime="15 seconds")
+    .trigger(processingTime="2 minutes")
     .start("/opt/data-lake/bronze/trip_updates")
 )
 

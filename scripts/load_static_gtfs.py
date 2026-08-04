@@ -25,7 +25,7 @@ def load_routes():
     df["load_number"] = LOAD_NUMBER
 
     # Write directly to the Lakehouse (Bronze) as Parquet
-    # This is much faster and simpler than writing to Postgres
+
     output_path = f"{BRONZE_LAKE_DIR}/dim_route.parquet"
     df.to_parquet(output_path, index=False)
     
