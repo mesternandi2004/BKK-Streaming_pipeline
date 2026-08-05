@@ -43,7 +43,7 @@ TRIP_UPDATES_TOPIC = "bkk-trip-updates"
 
 def fetch_feed(url):
     """Ask and decodethe GTFS-realtime feed protobuf's answer."""
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, timeout=15)
     response.raise_for_status()
 
     feed = gtfs_realtime_pb2.FeedMessage()

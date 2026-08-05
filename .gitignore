@@ -7,3 +7,4 @@ venv/
 sparkenv/
 *.pem
 *.key
+data-lake/
