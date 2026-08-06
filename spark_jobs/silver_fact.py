@@ -1,10 +1,10 @@
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
+from pyspark.sql.functions import col, from_unixtime
 
 def main():
     spark = (
         SparkSession.builder.appName("SilverFactStreamingPipeline")
-        .master("spark://localhost:7077")
         .config("spark.jars.ivy", "/home/azureuser/.ivy2")
         .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.2.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -19,12 +19,12 @@ def main():
     # 1. Read Bronze delta tables as Streams
     vhc_positions_df = (
         spark.readStream.format("delta")
-        .load("/home/azureuser/BKK-Streaming_pipeline/data-lake/bronze/vehicle_positions")
+        .load("/opt/data-lake/bronze/vehicle_positions")
     )
     
     trip_updates_df = (
         spark.readStream.format("delta")
-        .load("/home/azureuser/BKK-Streaming_pipeline/data-lake/bronze/trip_updates")
+        .load("/opt/data-lake/bronze/trip_updates")
     )
 
     # 2. Clean Vehicle Positions & cast timestamps to proper TimestampType if needed
@@ -33,6 +33,11 @@ def main():
         (F.col("trip_id").isNotNull()) & (F.trim(F.col("trip_id")) != "") &
         (F.col("stop_id").isNotNull()) & (F.trim(F.col("stop_id")) != "")
     ).drop("vehicle_label", "license_plate")
+
+    clean_vhc_positions_df = clean_vhc_positions_df.withColumn(
+        "vehicle_timestamp",
+        from_unixtime(col("vehicle_timestamp")).cast("timestamp")
+    )
 
     # 3. Clean Trip Updates
     clean_trip_updates_df = trip_updates_df.filter(
@@ -84,8 +89,8 @@ def main():
         fact_df.writeStream
         .format("delta")
         .outputMode("append")
-        .option("checkpointLocation", "/home/azureuser/BKK-Streaming_pipeline/data-lake/silver/_checkpoints/fact")
-        .load("/home/azureuser/BKK-Streaming_pipeline/data-lake/silver/fact") 
+        .option("checkpointLocation", "/opt/data-lake/silver/_checkpoints/fact")
+        .start("/opt/data-lake/silver/fact")
     )
     
     query.awaitTermination()
